@@ -141,15 +141,19 @@ do_gc:
 
 		/* if return value is not zero, no victim was selected */
 		if (f2fs_gc(sbi, force_gc || test_opt(sbi, FORCE_FG_GC), true, NULL_SEGNO)) {
-			/* also wait until all invalid blocks are discarded */
-			if (dcc->undiscard_blks == 0) {
-				wait_ms = gc_th->no_gc_sleep_time;
-				gc_set_wakelock(sbi, gc_th, false);
-				sbi->gc_mode = GC_NORMAL;
-				f2fs_msg(sbi->sb, KERN_INFO,
-					"No more GC victim found, "
-					"sleeping for %u ms", wait_ms);
-			}
+			wait_ms = gc_th->no_gc_sleep_time;
+			gc_set_wakelock(sbi, gc_th, false);
+			sbi->gc_mode = GC_NORMAL;
+			f2fs_msg(sbi->sb, KERN_INFO,
+				"No more GC victim found, "
+				"sleeping for %u ms", wait_ms);
+
+			/*
+			 * Rapid GC would have cleaned hundreds of segments
+			 * that would not be read again anytime soon.
+			 */
+			mm_drop_caches(3);
+			f2fs_msg(sbi->sb, KERN_INFO, "dropped caches");
 		}
 
 		trace_f2fs_background_gc(sbi->sb, wait_ms,
@@ -1501,16 +1505,6 @@ stop:
 	SIT_I(sbi)->last_victim[ALLOC_NEXT] = 0;
 	SIT_I(sbi)->last_victim[FLUSH_DEVICE] = init_segno;
 
-<<<<<<< HEAD
-	trace_f2fs_gc_end(sbi->sb, ret, total_freed, sec_freed,
-				get_pages(sbi, F2FS_DIRTY_NODES),
-				get_pages(sbi, F2FS_DIRTY_DENTS),
-				get_pages(sbi, F2FS_DIRTY_IMETA),
-				free_sections(sbi),
-				free_segments(sbi),
-				reserved_segments(sbi),
-				prefree_segments(sbi));
-=======
 	//trace_f2fs_gc_end(sb, ret, total_freed, sec_freed,
 	//			get_pages(sbi, F2FS_DIRTY_NODES),
 	//			get_pages(sbi, F2FS_DIRTY_DENTS),
@@ -1519,7 +1513,6 @@ stop:
 	//			free_segments(sbi),
 	//			reserved_segments(sbi),
 	//			prefree_segments(sbi));
->>>>>>> 69fe5f15713d... f2fs: explicitly flush device upon foreground GC
 
 	mutex_unlock(&sbi->gc_mutex);
 
